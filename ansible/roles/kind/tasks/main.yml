@@ -1,0 +1,8 @@
+---
+- name: Install Docker.
+  ansible.builtin.include_tasks:
+    file: docker.yml
+
+- name: Install kind.
+  ansible.builtin.include_tasks:
+    file: kind_install.yml

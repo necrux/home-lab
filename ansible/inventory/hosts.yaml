@@ -1,0 +1,11 @@
+all:
+  vars:
+    ansible_user: wes
+enzo:
+  hosts:
+    192.168.86.67
+nas:
+  hosts:
+    truenas.necrux.com
+  vars:
+    ansible_user: root

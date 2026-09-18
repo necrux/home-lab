@@ -1,0 +1,54 @@
+---
+- name: Install Docker prerequisites.
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure APT keyrings directory exists.
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check for Docker repo GPG key.
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/docker.asc
+  register: kind_docker_gpg_key
+
+- name: Install Docker repo GPG key.
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
+  when: not kind_docker_gpg_key.stat.exists
+
+- name: Configure Docker apt repo.
+  ansible.builtin.apt_repository:
+    repo: "{{ lookup('ansible.builtin.template', 'docker.repo.j2') }}"
+    filename: docker
+    state: present
+    update_cache: true
+
+- name: Install Docker Engine.
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: "{{ kind_docker_package_state }}"
+
+- name: Ensure Docker service is enabled and running.
+  ansible.builtin.service:
+    name: docker
+    state: "{{ kind_docker_service_state }}"
+    enabled: "{{ kind_docker_service_enabled }}"

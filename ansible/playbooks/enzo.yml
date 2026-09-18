@@ -1,0 +1,5 @@
+---
+- hosts: enzo
+  become: true
+  roles:
+    - role: kind

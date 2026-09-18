@@ -1,0 +1,16 @@
+---
+# Docker
+kind_docker_package_state: present
+kind_docker_service_state: started
+kind_docker_service_enabled: true
+
+# Kind
+kind_version: "v0.33.0"
+kind_install_path: "/usr/local/bin/kind"
+kind_cluster_name: "kind"
+kind_provider: "docker"
+kind_node_image: ""
+kind_wait_timeout: "5m"
+kind_create_cluster: true
+kind_config_enabled: true
+kind_config_path: "/etc/kind/config.yaml"

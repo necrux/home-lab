@@ -1,0 +1,77 @@
+---
+- name: Validate architecture.
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in ['x86_64', 'aarch64']
+    fail_msg: >-
+      Unsupported architecture: {{ ansible_architecture }}.
+      This role currently supports x86_64 and aarch64.
+
+- name: Check installed kind version.
+  ansible.builtin.command:
+    cmd: "{{ kind_install_path }} version --short"
+  register: kind_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Install kind.
+  when: >
+    kind_version_check.rc != 0 or
+    kind_version not in kind_version_check.stdout
+  block:
+    - name: Download kind.
+      ansible.builtin.get_url:
+        url: >-
+          https://kind.sigs.k8s.io/dl/{{ kind_version }}/kind-linux-{{
+            'amd64' if ansible_architecture == 'x86_64'
+            else 'arm64' if ansible_architecture == 'aarch64'
+            else ''
+          }}
+        dest: "{{ kind_install_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+- name: Ensure kind configuration directory exists.
+  ansible.builtin.file:
+    path: "{{ kind_config_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: kind_config_enabled
+
+- name: Configure kind.
+  ansible.builtin.template:
+    src: kind-config.yaml.j2
+    dest: "{{ kind_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: kind_config_enabled
+
+- name: Check for existing kind cluster.
+  ansible.builtin.command:
+    cmd: "{{ kind_install_path }} get clusters"
+  register: kind_clusters
+  changed_when: false
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"
+
+- name: Create kind cluster.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kind_install_path }} create cluster
+      --name {{ kind_cluster_name }}
+      {% if kind_config_enabled %}
+      --config {{ kind_config_path }}
+      {% endif %}
+      {% if kind_node_image %}
+      --image {{ kind_node_image }}
+      {% endif %}
+      --wait {{ kind_wait_timeout }}
+  when:
+    - kind_create_cluster
+    - kind_cluster_name not in kind_clusters.stdout_lines
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"

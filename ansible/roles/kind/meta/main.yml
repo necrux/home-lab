@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  author: Wes Henderson
+  description: Install and configure a single-node kind Kubernetes cluster.
+  license: MIT
+  min_ansible_version: "2.15"
+
+dependencies:
+  - role: ubuntu_base

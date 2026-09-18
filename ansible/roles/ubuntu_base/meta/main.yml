@@ -1,0 +1,8 @@
+---
+galaxy_info:
+  author: Wes Henderson
+  description: Base Ubuntu configuration for home-lab.
+  license: MIT
+  min_ansible_version: "2.15"
+
+dependencies: []
