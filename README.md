@@ -1,2 +1,2 @@
 # home-lab
-Home lab config management an tooling.
+Home lab config management and tooling.
