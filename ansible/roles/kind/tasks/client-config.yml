@@ -1,0 +1,89 @@
+---
+- name: Ensure Kubernetes client configuration directory exists.
+  ansible.builtin.file:
+    path: "{{ kind_kubeconfig_path | dirname }}"
+    state: directory
+    owner: "{{ kind_kubeconfig_user }}"
+    group: "{{ kind_kubeconfig_user }}"
+    mode: "0700"
+
+- name: Check for existing user kubeconfig.
+  ansible.builtin.stat:
+    path: "{{ kind_kubeconfig_path }}"
+  register: kind_user_kubeconfig
+
+- name: Check for Kind kubeconfig.
+  ansible.builtin.stat:
+    path: /root/.kube/config
+  register: kind_root_kubeconfig
+
+- name: Fail if Kind kubeconfig does not exist.
+  ansible.builtin.fail:
+    msg: >-
+      Kind kubeconfig was not found at /root/.kube/config.
+      Ensure the Kind cluster has been created before configuring the
+      Kubernetes client.
+  when: not kind_root_kubeconfig.stat.exists
+
+- name: Check for existing Kind context.
+  ansible.builtin.command:
+    cmd: kubectl config get-contexts -o name
+  become_user: "{{ kind_kubeconfig_user }}"
+  environment:
+    KUBECONFIG: "{{ kind_kubeconfig_path }}"
+  register: kind_existing_contexts
+  changed_when: false
+  failed_when: false
+
+- name: Create temporary merged kubeconfig.
+  ansible.builtin.shell:
+    cmd: >-
+      kubectl config view
+      --raw
+      --flatten
+      > /tmp/kind-merged-kubeconfig
+  environment:
+    KUBECONFIG: >-
+      {{ kind_kubeconfig_path }}:/root/.kube/config
+  changed_when: false
+  when:
+    - "'kind-' ~ kind_cluster_name not in kind_existing_contexts.stdout_lines"
+
+- name: Install merged Kubernetes client configuration.
+  ansible.builtin.copy:
+    src: /tmp/kind-merged-kubeconfig
+    dest: "{{ kind_kubeconfig_path }}"
+    owner: "{{ kind_kubeconfig_user }}"
+    group: "{{ kind_kubeconfig_user }}"
+    mode: "0600"
+    remote_src: true
+  when:
+    - "'kind-' ~ kind_cluster_name not in kind_existing_contexts.stdout_lines"
+
+- name: Remove temporary merged kubeconfig.
+  ansible.builtin.file:
+    path: /tmp/kind-merged-kubeconfig
+    state: absent
+  when:
+    - "'kind-' ~ kind_cluster_name not in kind_existing_contexts.stdout_lines"
+
+- name: Check current Kubernetes context.
+  ansible.builtin.command:
+    cmd: kubectl config current-context
+  become_user: "{{ kind_kubeconfig_user }}"
+  environment:
+    KUBECONFIG: "{{ kind_kubeconfig_path }}"
+  register: kind_current_context
+  changed_when: false
+  failed_when: false
+  when: kind_set_current_context
+
+- name: Set Kind as the current Kubernetes context.
+  ansible.builtin.command:
+    cmd: "kubectl config use-context kind-{{ kind_cluster_name }}"
+  become_user: "{{ kind_kubeconfig_user }}"
+  environment:
+    KUBECONFIG: "{{ kind_kubeconfig_path }}"
+  when:
+    - kind_set_current_context
+    - kind_current_context.stdout != "kind-" ~ kind_cluster_name

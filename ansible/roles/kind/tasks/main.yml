@@ -25,3 +25,8 @@
 - name: Install Kind.
   ansible.builtin.include_tasks:
     file: kind_install.yml
+
+- name: Configure Kubernetes client.
+  ansible.builtin.include_tasks:
+    file: client-config.yml
+  when: kind_create_cluster
