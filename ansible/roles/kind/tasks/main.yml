@@ -1,8 +1,27 @@
 ---
+- name: Validate host architecture.
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in kind_supported_architectures
+    fail_msg: >-
+      Unsupported architecture: {{ ansible_architecture }}.
+      Supported architectures are:
+      {{ kind_supported_architectures.keys() | list | join(', ') }}.
+
 - name: Install Docker.
   ansible.builtin.include_tasks:
     file: docker.yml
 
-- name: Install kind.
+- name: Install kubectl.
+  ansible.builtin.include_tasks:
+    file: kubectl.yml
+  when: kind_install_kubectl
+
+- name: Install Helm.
+  ansible.builtin.include_tasks:
+    file: helm.yml
+  when: kind_install_helm
+
+- name: Install Kind.
   ansible.builtin.include_tasks:
     file: kind_install.yml

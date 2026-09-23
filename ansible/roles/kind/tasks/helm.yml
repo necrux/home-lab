@@ -1,0 +1,59 @@
+---
+- name: Check installed Helm version.
+  ansible.builtin.command:
+    cmd: "{{ helm_install_path }} version --short"
+  register: helm_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Helm.
+  when: >
+    helm_version_check.rc != 0 or
+    helm_version not in helm_version_check.stdout
+  block:
+    - name: Download Helm.
+      ansible.builtin.get_url:
+        url: >-
+          https://get.helm.sh/helm-{{ helm_version }}-linux-{{
+          kind_supported_architectures[ansible_architecture]
+          }}.tar.gz
+        dest: "/tmp/helm-{{ helm_version }}.tar.gz"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Create Helm extraction directory.
+      ansible.builtin.file:
+        path: "/tmp/helm-{{ helm_version }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Extract Helm.
+      ansible.builtin.unarchive:
+        src: "/tmp/helm-{{ helm_version }}.tar.gz"
+        dest: "/tmp/helm-{{ helm_version }}"
+        remote_src: true
+
+    - name: Install Helm binary.
+      ansible.builtin.copy:
+        src: >-
+          /tmp/helm-{{ helm_version }}/linux-{{
+          kind_supported_architectures[ansible_architecture]
+          }}/helm
+        dest: "{{ helm_install_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+
+    - name: Remove Helm archive.
+      ansible.builtin.file:
+        path: "/tmp/helm-{{ helm_version }}.tar.gz"
+        state: absent
+
+    - name: Remove Helm extraction directory.
+      ansible.builtin.file:
+        path: "/tmp/helm-{{ helm_version }}"
+        state: absent

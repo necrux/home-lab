@@ -1,0 +1,21 @@
+---
+- name: Check installed kubectl version.
+  ansible.builtin.command:
+    cmd: "{{ kubectl_install_path }} version --client -o json"
+  register: kubectl_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Install kubectl.
+  ansible.builtin.get_url:
+    url: >-
+      https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/{{
+      kind_supported_architectures[ansible_architecture]
+      }}/kubectl
+    dest: "{{ kubectl_install_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: >
+    kubectl_version_check.rc != 0 or
+    kubectl_version not in kubectl_version_check.stdout

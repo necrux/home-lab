@@ -1,12 +1,4 @@
 ---
-- name: Validate architecture.
-  ansible.builtin.assert:
-    that:
-      - ansible_architecture in ['x86_64', 'aarch64']
-    fail_msg: >-
-      Unsupported architecture: {{ ansible_architecture }}.
-      This role currently supports x86_64 and aarch64.
-
 - name: Check installed kind version.
   ansible.builtin.command:
     cmd: "{{ kind_install_path }} version --short"
@@ -23,9 +15,7 @@
       ansible.builtin.get_url:
         url: >-
           https://kind.sigs.k8s.io/dl/{{ kind_version }}/kind-linux-{{
-            'amd64' if ansible_architecture == 'x86_64'
-            else 'arm64' if ansible_architecture == 'aarch64'
-            else ''
+          kind_supported_architectures[ansible_architecture]
           }}
         dest: "{{ kind_install_path }}"
         owner: root
