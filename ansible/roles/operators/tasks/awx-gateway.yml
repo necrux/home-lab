@@ -1,0 +1,33 @@
+---
+- name: Ensure AWX Gateway API configuration directory exists.
+  ansible.builtin.file:
+    path: /etc/kind/gateway
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure AWX HTTPRoute.
+  ansible.builtin.template:
+    src: awx-httproute.yaml.j2
+    dest: /etc/kind/gateway/awx-httproute.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check for AWX HTTPRoute changes.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} diff
+      -f /etc/kind/gateway/awx-httproute.yaml
+  register: operators_awx_gateway_diff
+  changed_when: false
+  failed_when: operators_awx_gateway_diff.rc > 1
+
+- name: Apply AWX HTTPRoute.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/gateway/awx-httproute.yaml
+  when: operators_awx_gateway_diff.rc == 1
+  changed_when: true

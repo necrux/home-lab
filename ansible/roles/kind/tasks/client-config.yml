@@ -7,11 +7,6 @@
     group: "{{ kind_kubeconfig_user }}"
     mode: "0700"
 
-- name: Check for existing user kubeconfig.
-  ansible.builtin.stat:
-    path: "{{ kind_kubeconfig_path }}"
-  register: kind_user_kubeconfig
-
 - name: Check for Kind kubeconfig.
   ansible.builtin.stat:
     path: /root/.kube/config
@@ -25,15 +20,51 @@
       Kubernetes client.
   when: not kind_root_kubeconfig.stat.exists
 
-- name: Check for existing Kind context.
+- name: Remove existing Kind context from user kubeconfig.
   ansible.builtin.command:
-    cmd: kubectl config get-contexts -o name
+    cmd: >-
+      kubectl config delete-context
+      kind-{{ kind_cluster_name }}
   become_user: "{{ kind_kubeconfig_user }}"
   environment:
     KUBECONFIG: "{{ kind_kubeconfig_path }}"
-  register: kind_existing_contexts
-  changed_when: false
+  register: kind_context_removed
+  changed_when: kind_context_removed.rc == 0
   failed_when: false
+
+- name: Remove existing Kind cluster configuration from user kubeconfig.
+  ansible.builtin.command:
+    cmd: >-
+      kubectl config delete-cluster
+      kind-{{ kind_cluster_name }}
+  become_user: "{{ kind_kubeconfig_user }}"
+  environment:
+    KUBECONFIG: "{{ kind_kubeconfig_path }}"
+  register: kind_cluster_removed
+  changed_when: kind_cluster_removed.rc == 0
+  failed_when: false
+
+- name: Remove existing Kind user credentials from user kubeconfig.
+  ansible.builtin.command:
+    cmd: >-
+      kubectl config delete-user
+      kind-{{ kind_cluster_name }}
+  become_user: "{{ kind_kubeconfig_user }}"
+  environment:
+    KUBECONFIG: "{{ kind_kubeconfig_path }}"
+  register: kind_user_removed
+  changed_when: kind_user_removed.rc == 0
+  failed_when: false
+
+- name: Create current Kind kubeconfig.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kind_install_path }} export kubeconfig
+      --name {{ kind_cluster_name }}
+      --kubeconfig /tmp/kind-kubeconfig
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"
+  changed_when: false
 
 - name: Create temporary merged kubeconfig.
   ansible.builtin.shell:
@@ -44,10 +75,8 @@
       > /tmp/kind-merged-kubeconfig
   environment:
     KUBECONFIG: >-
-      {{ kind_kubeconfig_path }}:/root/.kube/config
+      {{ kind_kubeconfig_path }}:/tmp/kind-kubeconfig
   changed_when: false
-  when:
-    - "'kind-' ~ kind_cluster_name not in kind_existing_contexts.stdout_lines"
 
 - name: Install merged Kubernetes client configuration.
   ansible.builtin.copy:
@@ -57,15 +86,16 @@
     group: "{{ kind_kubeconfig_user }}"
     mode: "0600"
     remote_src: true
-  when:
-    - "'kind-' ~ kind_cluster_name not in kind_existing_contexts.stdout_lines"
+
+- name: Remove temporary Kind kubeconfig.
+  ansible.builtin.file:
+    path: /tmp/kind-kubeconfig
+    state: absent
 
 - name: Remove temporary merged kubeconfig.
   ansible.builtin.file:
     path: /tmp/kind-merged-kubeconfig
     state: absent
-  when:
-    - "'kind-' ~ kind_cluster_name not in kind_existing_contexts.stdout_lines"
 
 - name: Check current Kubernetes context.
   ansible.builtin.command:

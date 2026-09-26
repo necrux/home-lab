@@ -6,21 +6,25 @@
   changed_when: false
   failed_when: false
 
-- name: Install kind.
-  when: >
-    kind_version_check.rc != 0 or
-    kind_version not in kind_version_check.stdout
-  block:
-    - name: Download kind.
-      ansible.builtin.get_url:
-        url: >-
-          https://kind.sigs.k8s.io/dl/{{ kind_version }}/kind-linux-{{
-          kind_supported_architectures[ansible_architecture]
-          }}
-        dest: "{{ kind_install_path }}"
-        owner: root
-        group: root
-        mode: "0755"
+- name: Check for existing kind cluster.
+  ansible.builtin.command:
+    cmd: "{{ kind_install_path }} get clusters"
+  register: kind_clusters
+  changed_when: false
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"
+
+- name: Recreate Kind cluster.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kind_install_path }} delete cluster
+      --name {{ kind_cluster_name }}
+  register: kind_cluster_recreated
+  when:
+    - kind_recreate_cluster
+    - kind_cluster_name in kind_clusters.stdout_lines
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"
 
 - name: Ensure kind configuration directory exists.
   ansible.builtin.file:
@@ -40,10 +44,10 @@
     mode: "0644"
   when: kind_config_enabled
 
-- name: Check for existing kind cluster.
+- name: Check for existing kind cluster after recreation.
   ansible.builtin.command:
     cmd: "{{ kind_install_path }} get clusters"
-  register: kind_clusters
+  register: kind_clusters_after_recreation
   changed_when: false
   environment:
     KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"
@@ -60,8 +64,9 @@
       --image {{ kind_node_image }}
       {% endif %}
       --wait {{ kind_wait_timeout }}
+  register: kind_cluster_created
   when:
     - kind_create_cluster
-    - kind_cluster_name not in kind_clusters.stdout_lines
+    - kind_cluster_name not in kind_clusters_after_recreation.stdout_lines
   environment:
     KIND_EXPERIMENTAL_PROVIDER: "{{ kind_provider }}"

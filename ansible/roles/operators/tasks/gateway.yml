@@ -1,0 +1,59 @@
+---
+- name: Ensure Gateway API configuration directory exists.
+  ansible.builtin.file:
+    path: /etc/kind/gateway
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure Envoy GatewayClass.
+  ansible.builtin.template:
+    src: gatewayclass.yaml.j2
+    dest: /etc/kind/gateway/gatewayclass.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  register: operators_gatewayclass_config
+
+- name: Configure EnvoyProxy.
+  ansible.builtin.template:
+    src: envoyproxy.yaml.j2
+    dest: /etc/kind/gateway/envoyproxy.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  register: operators_envoyproxy_config
+
+- name: Configure home Gateway.
+  ansible.builtin.template:
+    src: gateway.yaml.j2
+    dest: /etc/kind/gateway/gateway.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  register: operators_gateway_config
+
+- name: Apply Envoy GatewayClass.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/gateway/gatewayclass.yaml
+  register: operators_gatewayclass_apply
+  changed_when: "'unchanged' not in operators_gatewayclass_apply.stdout"
+
+- name: Apply EnvoyProxy.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/gateway/envoyproxy.yaml
+  register: operators_envoyproxy_apply
+  changed_when: "'unchanged' not in operators_envoyproxy_apply.stdout"
+
+- name: Apply home Gateway.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/gateway/gateway.yaml
+  register: operators_gateway_apply
+  changed_when: "'unchanged' not in operators_gateway_apply.stdout"

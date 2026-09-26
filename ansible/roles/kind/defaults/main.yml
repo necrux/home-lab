@@ -23,6 +23,18 @@ kind_create_cluster: true
 kind_config_enabled: true
 kind_config_path: "/etc/kind/config.yaml"
 
+## CLI Override: ansible-playbook ./playbooks/enzo.yml -e "kind_recreate_cluster=true"
+kind_recreate_cluster: false
+
+# Kind Networking
+kind_extra_port_mappings:
+  - containerPort: 30080
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+
 # kubectl
 kind_install_kubectl: true
 kubectl_version: "v{{ kind_kubernetes_version }}"

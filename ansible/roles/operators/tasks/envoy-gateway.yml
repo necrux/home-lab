@@ -1,0 +1,68 @@
+---
+- name: Check whether Envoy Gateway is installed.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} list
+      --namespace {{ operators_envoy_gateway_namespace }}
+      --filter ^{{ operators_envoy_gateway_release }}$
+      --output json
+  register: operators_envoy_gateway_status
+  changed_when: false
+  failed_when: false
+
+- name: Determine installed Envoy Gateway chart version.
+  ansible.builtin.set_fact:
+    operators_envoy_gateway_installed_version: >-
+      {{
+        (operators_envoy_gateway_status.stdout | from_json)[0].chart
+        | regex_replace('^.*-', '')
+      }}
+  when:
+    - operators_envoy_gateway_status.rc == 0
+    - (operators_envoy_gateway_status.stdout | from_json) | length > 0
+
+- name: Install or update Envoy Gateway.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} upgrade --install
+      {{ operators_envoy_gateway_release }}
+      oci://docker.io/envoyproxy/gateway-helm
+      --namespace {{ operators_envoy_gateway_namespace }}
+      --create-namespace
+      --version {{ operators_envoy_gateway_chart_version }}
+  register: operators_envoy_gateway_install
+  when:
+    - operators_install_envoy_gateway
+    - >
+      (operators_envoy_gateway_status.rc != 0 or
+      (operators_envoy_gateway_status.stdout | from_json) | length == 0) or
+      operators_envoy_gateway_installed_version !=
+      operators_envoy_gateway_chart_version | regex_replace('^v', '')
+  changed_when: true
+
+- name: Wait for Envoy Gateway to become ready.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} wait
+      --namespace {{ operators_envoy_gateway_namespace }}
+      --for=condition=Available
+      --timeout={{ operators_envoy_gateway_wait_timeout }}
+      deployment/{{ operators_envoy_gateway_release }}
+  when: operators_install_envoy_gateway
+  changed_when: false
+
+- name: Configure Gateway API resources.
+  ansible.builtin.include_tasks:
+    file: gateway.yml
+  when: operators_install_envoy_gateway
+
+- name: Uninstall Envoy Gateway.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} uninstall
+      {{ operators_envoy_gateway_release }}
+      --namespace {{ operators_envoy_gateway_namespace }}
+  when:
+    - not operators_install_envoy_gateway
+    - operators_envoy_gateway_status.rc == 0
+    - (operators_envoy_gateway_status.stdout | from_json) | length > 0

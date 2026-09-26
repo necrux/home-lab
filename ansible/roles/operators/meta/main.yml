@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  author: Wes Henderson
+  description: Installs the Kubernetes software I want on my home-lab cluster.
+  license: MIT
+  min_ansible_version: "2.15"
+
+dependencies:
+  - role: kind

@@ -1,0 +1,88 @@
+---
+- name: Add AWX Operator Helm repository.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} repo add
+      awx-operator
+      https://ansible-community.github.io/awx-operator-helm/
+  register: operators_awx_repo
+  changed_when: "'has been added' in operators_awx_repo.stdout"
+  failed_when:
+    - operators_awx_repo.rc != 0
+    - "'already exists' not in operators_awx_repo.stderr"
+
+- name: Update AWX Operator Helm repository.
+  ansible.builtin.command:
+    cmd: "{{ helm_install_path }} repo update awx-operator"
+  changed_when: false
+
+- name: Check whether AWX Operator is installed.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} list
+      --namespace {{ operators_awx_namespace }}
+      --filter ^{{ operators_awx_operator_release }}$
+      --output json
+  register: operators_awx_status
+  changed_when: false
+  failed_when: false
+
+- name: Determine installed AWX Operator chart version.
+  ansible.builtin.set_fact:
+    operators_awx_installed_version: >-
+      {{
+        (operators_awx_status.stdout | from_json)[0].chart
+        | regex_replace('^.*-', '')
+      }}
+  when:
+    - operators_awx_status.rc == 0
+    - (operators_awx_status.stdout | from_json) | length > 0
+
+- name: Install or update AWX.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} upgrade --install
+      {{ operators_awx_operator_release }}
+      awx-operator/awx-operator
+      --namespace {{ operators_awx_namespace }}
+      --create-namespace
+      --version {{ operators_awx_chart_version }}
+      --set AWX.enabled=true
+      --set AWX.name={{ operators_awx_name }}
+      --set AWX.spec.service_type={{ operators_awx_service_type }}
+  register: operators_awx_install
+  when:
+    - operators_install_awx
+    - >
+      (operators_awx_status.rc != 0 or
+      (operators_awx_status.stdout | from_json) | length == 0) or
+      operators_awx_installed_version !=
+      operators_awx_chart_version | regex_replace('^v', '')
+  changed_when: true
+
+- name: Wait for AWX operator to become ready.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} wait
+      --namespace {{ operators_awx_namespace }}
+      --for=condition=Available
+      --timeout=5m
+      deployment/{{ operators_awx_operator_release }}-controller-manager
+  when: operators_install_awx
+  changed_when: false
+
+- name: Configure AWX Gateway API route.
+  ansible.builtin.include_tasks:
+    file: awx-gateway.yml
+  when: operators_install_awx
+
+- name: Uninstall AWX.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} uninstall
+      {{ operators_awx_operator_release }}
+      --namespace {{ operators_awx_namespace }}
+  when:
+    - not operators_install_awx
+    - operators_awx_status.rc == 0
+    - (operators_awx_status.stdout | from_json) | length > 0

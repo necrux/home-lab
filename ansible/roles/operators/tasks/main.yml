@@ -1,0 +1,8 @@
+---
+- name: Install Envoy Gateway.
+  ansible.builtin.include_tasks:
+    file: envoy-gateway.yml
+
+- name: Install AWX.
+  ansible.builtin.include_tasks:
+    file: awx.yml

@@ -29,4 +29,6 @@
 - name: Configure Kubernetes client.
   ansible.builtin.include_tasks:
     file: client-config.yml
-  when: kind_create_cluster
+  when:
+    - kind_cluster_created.changed | default(false) or
+      kind_cluster_recreated.changed | default(false)

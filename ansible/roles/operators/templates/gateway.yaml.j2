@@ -1,0 +1,14 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ operators_gateway_name }}
+  namespace: {{ operators_gateway_namespace }}
+spec:
+  gatewayClassName: {{ operators_gateway_class_name }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: {{ operators_gateway_http_port }}
+      allowedRoutes:
+        namespaces:
+          from: All
