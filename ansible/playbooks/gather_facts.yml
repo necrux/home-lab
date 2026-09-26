@@ -1,0 +1,16 @@
+---
+- name: Gather facts from home lab hosts
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Display gathered facts
+      ansible.builtin.debug:
+        msg:
+          - "Hostname: {{ ansible_hostname | default('Unknown') }}"
+          - "Operating System: {{ ansible_distribution | default('Unknown') }} {{ ansible_distribution_version | default('Unknown') }}"
+          - "Kernel: {{ ansible_kernel | default('Unknown') }}"
+          - "Architecture: {{ ansible_architecture | default('Unknown') }}"
+          - "CPU Cores: {{ ansible_processor_vcpus | default('Unknown') }}"
+          - "Memory: {{ ansible_memtotal_mb | default('Unknown') }} MB"
+          - "Uptime: {{ ((ansible_uptime_seconds / 86400) | round(1)) if ansible_uptime_seconds is defined else 'Unknown' }} days"
