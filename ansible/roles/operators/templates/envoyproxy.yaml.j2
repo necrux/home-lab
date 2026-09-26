@@ -20,3 +20,8 @@ spec:
                   port: 80
                   protocol: TCP
                   targetPort: 10080
+                - name: https-443
+                  nodePort: {{ operators_envoy_https_node_port }}
+                  port: 443
+                  protocol: TCP
+                  targetPort: 10443

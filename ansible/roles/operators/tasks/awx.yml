@@ -71,6 +71,30 @@
   when: operators_install_awx
   changed_when: false
 
+- name: Fetch AWX default admin password.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} get secret
+      {{ operators_awx_name }}-admin-password
+      --namespace {{ operators_awx_namespace }}
+      -o jsonpath="{.data.password}"
+  register: operators_awx_admin_password
+  changed_when: false
+  no_log: true
+  retries: 30
+  delay: 10
+  until: operators_awx_admin_password.rc == 0
+  when: operators_install_awx
+
+- name: Display AWX default admin password.
+  ansible.builtin.debug:
+    msg: >-
+      Fetch default admin password: {{
+        operators_awx_admin_password.stdout
+        | b64decode
+      }}
+  when: operators_install_awx
+  
 - name: Configure AWX Gateway API route.
   ansible.builtin.include_tasks:
     file: awx-gateway.yml

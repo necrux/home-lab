@@ -1,0 +1,7 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ operators_cert_manager_cluster_issuer_name }}
+spec:
+  ca:
+    secretName: {{ operators_cert_manager_ca_secret_name }}

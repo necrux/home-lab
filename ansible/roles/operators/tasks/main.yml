@@ -1,4 +1,14 @@
 ---
+- name: Install cert-manager.
+  ansible.builtin.include_tasks:
+    file: cert-manager.yml
+  when: operators_install_cert_manager
+
+- name: Configure certificates.
+  ansible.builtin.include_tasks:
+    file: certificates.yml
+  when: operators_install_cert_manager
+
 - name: Install Envoy Gateway.
   ansible.builtin.include_tasks:
     file: envoy-gateway.yml

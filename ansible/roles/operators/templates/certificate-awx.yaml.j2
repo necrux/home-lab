@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ operators_awx_certificate_name }}
+  namespace: {{ operators_awx_certificate_namespace }}
+spec:
+  secretName: {{ operators_awx_certificate_secret_name }}
+  duration: {{ operators_awx_certificate_duration }}
+  renewBefore: {{ operators_awx_certificate_renew_before }}
+  commonName: {{ operators_awx_hostname }}
+  dnsNames:
+    - {{ operators_awx_hostname }}
+  issuerRef:
+    name: {{ operators_cert_manager_cluster_issuer_name }}
+    kind: ClusterIssuer
+    group: cert-manager.io

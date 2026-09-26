@@ -12,3 +12,14 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ operators_awx_certificate_secret_name }}
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All

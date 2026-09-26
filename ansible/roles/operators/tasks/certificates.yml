@@ -1,0 +1,92 @@
+---
+- name: Ensure certificate configuration directory exists.
+  ansible.builtin.file:
+    path: /etc/kind/certificates
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure self-signed CA issuer.
+  ansible.builtin.template:
+    src: certificate-ca-issuer.yaml.j2
+    dest: /etc/kind/certificates/ca-issuer.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure root CA certificate.
+  ansible.builtin.template:
+    src: certificate-root-ca.yaml.j2
+    dest: /etc/kind/certificates/root-ca.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure private CA issuer.
+  ansible.builtin.template:
+    src: certificate-ca.yaml.j2
+    dest: /etc/kind/certificates/ca.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure AWX certificate.
+  ansible.builtin.template:
+    src: certificate-awx.yaml.j2
+    dest: /etc/kind/certificates/awx.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Apply self-signed CA issuer.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/certificates/ca-issuer.yaml
+  register: operators_cert_manager_ca_issuer_apply
+  changed_when: "'unchanged' not in operators_cert_manager_ca_issuer_apply.stdout"
+
+- name: Apply root CA certificate.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/certificates/root-ca.yaml
+  register: operators_cert_manager_root_ca_apply
+  changed_when: "'unchanged' not in operators_cert_manager_root_ca_apply.stdout"
+
+- name: Wait for root CA certificate to become ready.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} wait
+      --namespace {{ operators_cert_manager_ca_namespace }}
+      --for=condition=Ready
+      --timeout={{ operators_cert_manager_wait_timeout }}
+      certificate/{{ operators_cert_manager_ca_name }}
+  changed_when: false
+
+- name: Apply private CA issuer.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/certificates/ca.yaml
+  register: operators_cert_manager_ca_apply
+  changed_when: "'unchanged' not in operators_cert_manager_ca_apply.stdout"
+
+- name: Apply AWX certificate.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/certificates/awx.yaml
+  register: operators_awx_certificate_apply
+  changed_when: "'unchanged' not in operators_awx_certificate_apply.stdout"
+
+- name: Wait for AWX certificate to become ready.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} wait
+      --namespace {{ operators_awx_certificate_namespace }}
+      --for=condition=Ready
+      --timeout={{ operators_cert_manager_wait_timeout }}
+      certificate/{{ operators_awx_certificate_name }}
+  changed_when: false
