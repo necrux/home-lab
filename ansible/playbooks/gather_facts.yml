@@ -4,6 +4,39 @@
   gather_facts: true
 
   tasks:
+    - name: Check for physical CPU core information on FreeBSD.
+      ansible.builtin.command:
+        cmd: sysctl -n hw.ncores
+      register: freebsd_cpu_cores_check
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "FreeBSD"
+
+    - name: Determine CPU cores for FreeBSD.
+      ansible.builtin.command:
+        cmd: sysctl -n hw.ncores
+      register: freebsd_cpu_cores
+      changed_when: false
+      when:
+        - ansible_os_family == "FreeBSD"
+        - freebsd_cpu_cores_check.rc == 0
+
+    - name: Fall back to logical CPU count for FreeBSD.
+      ansible.builtin.command:
+        cmd: sysctl -n hw.ncpu
+      register: freebsd_cpu_cores
+      changed_when: false
+      when:
+        - ansible_os_family == "FreeBSD"
+        - freebsd_cpu_cores_check.rc != 0
+
+    - name: Determine CPU threads for FreeBSD.
+      ansible.builtin.command:
+        cmd: sysctl -n hw.ncpu
+      register: freebsd_cpu_threads
+      changed_when: false
+      when: ansible_os_family == "FreeBSD"
+
     - name: Check WinRM service on Windows.
       ansible.windows.win_service_info:
         name: WinRM
@@ -22,7 +55,27 @@
           - "Operating System: {{ ansible_distribution | default('Unknown') }} {{ ansible_distribution_version | default('Unknown') }}"
           - "Kernel: {{ ansible_kernel | default('Unknown') }}"
           - "Architecture: {{ ansible_architecture | default('Unknown') }}"
-          - "CPU Cores: {{ ansible_processor_vcpus | default('Unknown') }}"
+          - >-
+              CPU:
+              {{
+                ansible_processor[0]
+                if ansible_os_family == "FreeBSD"
+                else ansible_processor[2] | default('Unknown')
+              }}
+          - >-
+              CPU Cores:
+              {{
+                freebsd_cpu_cores.stdout
+                if ansible_os_family == "FreeBSD"
+                else ansible_processor_cores | default('Unknown')
+              }}
+          - >-
+              CPU Threads:
+              {{
+                freebsd_cpu_threads.stdout
+                if ansible_os_family == "FreeBSD"
+                else ansible_processor_vcpus | default('Unknown')
+              }}
           - "Memory: {{ ansible_memtotal_mb | default('Unknown') }} MB"
           - >-
               Uptime:
