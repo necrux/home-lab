@@ -1,10 +1,13 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
+
 metadata:
   name: {{ operators_gateway_name }}
   namespace: {{ operators_gateway_namespace }}
+
 spec:
   gatewayClassName: {{ operators_gateway_class_name }}
+
   listeners:
     - name: http
       protocol: HTTP
@@ -12,13 +15,28 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
-    - name: https
+
+    - name: awx-https
       protocol: HTTPS
       port: 443
+      hostname: {{ operators_awx_hostname }}
       tls:
         mode: Terminate
         certificateRefs:
           - name: {{ operators_awx_certificate_secret_name }}
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: argocd-https
+      protocol: HTTPS
+      port: 443
+      hostname: {{ operators_argocd_hostname }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ operators_argocd_certificate_secret_name }}
             kind: Secret
       allowedRoutes:
         namespaces:

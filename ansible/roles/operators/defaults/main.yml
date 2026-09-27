@@ -11,8 +11,8 @@ operators_envoy_gateway_wait_timeout: "5m"
 
 ## Gateway API
 operators_gateway_class_name: "envoy-gateway"
-operators_gateway_name: "home-gateway"
 operators_gateway_namespace: "default"
+operators_gateway_name: "home-gateway"
 
 ## Envoy Gateway proxy configuration
 operators_envoy_proxy_name: "home-gateway-proxy"
@@ -36,6 +36,17 @@ operators_awx_hostname: "awx.necrux.com"
 operators_awx_service_name: "awx-service"
 operators_awx_service_port: 80
 
+# ArgoCD
+operators_install_argocd: false
+operators_argocd_namespace: "argocd"
+operators_argocd_release: "argocd"
+operators_argocd_chart_version: "10.9.2"
+operators_argocd_name: "argocd"
+operators_argocd_hostname: "argocd.necrux.com"
+operators_argocd_service_name: "argocd-server"
+operators_argocd_service_port: 80
+operators_argocd_admin_secret_name: "argocd-initial-admin-secret"
+
 # cert-manager
 operators_install_cert_manager: true
 operators_cert_manager_namespace: "cert-manager"
@@ -55,9 +66,16 @@ operators_cert_manager_ca_renew_before: "720h"
 ## Private CA issuer
 operators_cert_manager_cluster_issuer_name: "home-lab-ca"
 
-## AWX certificate
+## AWX Certificate
 operators_awx_certificate_name: "awx"
 operators_awx_certificate_secret_name: "awx-tls"
 operators_awx_certificate_namespace: "{{ operators_gateway_namespace }}"
 operators_awx_certificate_duration: "2160h"
 operators_awx_certificate_renew_before: "720h"
+
+## ArgoCD Certificate
+operators_argocd_certificate_name: "argocd"
+operators_argocd_certificate_secret_name: "argocd-tls"
+operators_argocd_certificate_namespace: "{{ operators_gateway_namespace }}"
+operators_argocd_certificate_duration: "2160h"
+operators_argocd_certificate_renew_before: "720h"

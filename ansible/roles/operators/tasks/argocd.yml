@@ -1,0 +1,202 @@
+---
+- name: Add ArgoCD Helm repository.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} repo add
+      argo
+      https://argoproj.github.io/argo-helm
+  register: operators_argocd_repo
+  changed_when: "'has been added' in operators_argocd_repo.stdout"
+  failed_when:
+    - operators_argocd_repo.rc != 0
+    - "'already exists' not in operators_argocd_repo.stderr"
+
+- name: Update ArgoCD Helm repository.
+  ansible.builtin.command:
+    cmd: "{{ helm_install_path }} repo update argo"
+  changed_when: false
+
+- name: Check whether ArgoCD is installed.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} list
+      --namespace {{ operators_argocd_namespace }}
+      --filter ^{{ operators_argocd_release }}$
+      --output json
+  register: operators_argocd_status
+  changed_when: false
+  failed_when: false
+
+- name: Determine installed ArgoCD chart version.
+  ansible.builtin.set_fact:
+    operators_argocd_installed_version: >-
+      {{
+        (operators_argocd_status.stdout | from_json)[0].chart
+        | regex_replace('^.*-', '')
+      }}
+  when:
+    - operators_argocd_status.rc == 0
+    - (operators_argocd_status.stdout | from_json) | length > 0
+
+- name: Ensure ArgoCD namespace exists.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} create namespace
+      {{ operators_argocd_namespace }}
+  register: operators_argocd_namespace_create
+  changed_when: "'created' in operators_argocd_namespace_create.stdout"
+  failed_when:
+    - operators_argocd_namespace_create.rc != 0
+    - "'AlreadyExists' not in operators_argocd_namespace_create.stderr"
+  when: operators_install_argocd
+
+- name: Install or update ArgoCD.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} upgrade --install
+      {{ operators_argocd_release }}
+      argo/argo-cd
+      --namespace {{ operators_argocd_namespace }}
+      --version {{ operators_argocd_chart_version }}
+      --set configs.params."server\.insecure"=true
+  register: operators_argocd_install
+  when:
+    - operators_install_argocd
+    - >
+      (operators_argocd_status.rc != 0 or
+      (operators_argocd_status.stdout | from_json) | length == 0) or
+      operators_argocd_installed_version !=
+      operators_argocd_chart_version | regex_replace('^v', '')
+  changed_when: true
+
+- name: Wait for ArgoCD server to become ready.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} wait
+      --namespace {{ operators_argocd_namespace }}
+      --for=condition=Available
+      --timeout=5m
+      deployment/argocd-server
+  when: operators_install_argocd
+  changed_when: false
+
+- name: Fetch ArgoCD default admin password.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} get secret
+      {{ operators_argocd_admin_secret_name }}
+      --namespace {{ operators_argocd_namespace }}
+      -o jsonpath="{.data.password}"
+  register: operators_argocd_admin_password
+  changed_when: false
+  no_log: false
+  retries: 30
+  delay: 10
+  until: operators_argocd_admin_password.rc == 0
+  when: operators_install_argocd
+
+- name: Display ArgoCD default admin password.
+  ansible.builtin.debug:
+    msg: >-
+      Fetch default admin password: {{
+        operators_argocd_admin_password.stdout
+        | b64decode
+      }}
+  when: operators_install_argocd
+
+- name: Configure ArgoCD Gateway API route.
+  ansible.builtin.include_tasks:
+    file: argocd-gateway.yml
+  when: operators_install_argocd
+
+- name: Check for ArgoCD Gateway API route configuration.
+  ansible.builtin.stat:
+    path: /etc/kind/gateway/argocd-httproute.yaml
+  register: operators_argocd_gateway_config
+  when: not operators_install_argocd
+
+- name: Ensure ArgoCD certificate configuration directory exists.
+  ansible.builtin.file:
+    path: /etc/kind/certificates
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: operators_install_argocd
+
+- name: Configure ArgoCD certificate.
+  ansible.builtin.template:
+    src: certificate-argocd.yaml.j2
+    dest: /etc/kind/certificates/argocd.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when: operators_install_argocd
+
+- name: Apply ArgoCD certificate.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/certificates/argocd.yaml
+  register: operators_argocd_certificate_apply
+  changed_when: "'unchanged' not in operators_argocd_certificate_apply.stdout"
+  when: operators_install_argocd
+
+- name: Wait for ArgoCD certificate to become ready.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} wait
+      --namespace {{ operators_argocd_certificate_namespace }}
+      --for=condition=Ready
+      --timeout={{ operators_cert_manager_wait_timeout }}
+      certificate/{{ operators_argocd_certificate_name }}
+  changed_when: false
+  when: operators_install_argocd
+
+- name: Remove ArgoCD Gateway API route.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} delete
+      -f /etc/kind/gateway/argocd-httproute.yaml
+      --ignore-not-found
+  register: operators_argocd_gateway_remove
+  changed_when: "'deleted' in operators_argocd_gateway_remove.stdout"
+  when:
+    - not operators_install_argocd
+    - operators_argocd_gateway_config.stat.exists
+
+- name: Remove ArgoCD Gateway API route configuration.
+  ansible.builtin.file:
+    path: /etc/kind/gateway/argocd-httproute.yaml
+    state: absent
+  when:
+    - not operators_install_argocd
+    - operators_argocd_gateway_config.stat.exists
+
+- name: Remove ArgoCD certificate.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} delete
+      certificate/{{ operators_argocd_certificate_name }}
+      --namespace {{ operators_argocd_certificate_namespace }}
+      --ignore-not-found
+  register: operators_argocd_certificate_remove
+  changed_when: "'deleted' in operators_argocd_certificate_remove.stdout"
+  when: not operators_install_argocd
+
+- name: Remove ArgoCD certificate configuration.
+  ansible.builtin.file:
+    path: /etc/kind/certificates/argocd.yaml
+    state: absent
+  when: not operators_install_argocd
+
+- name: Uninstall ArgoCD.
+  ansible.builtin.command:
+    cmd: >-
+      {{ helm_install_path }} uninstall
+      {{ operators_argocd_release }}
+      --namespace {{ operators_argocd_namespace }}
+  when:
+    - not operators_install_argocd
+    - operators_argocd_status.rc == 0
+    - (operators_argocd_status.stdout | from_json) | length > 0

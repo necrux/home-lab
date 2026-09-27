@@ -80,13 +80,3 @@
       -f /etc/kind/certificates/awx.yaml
   register: operators_awx_certificate_apply
   changed_when: "'unchanged' not in operators_awx_certificate_apply.stdout"
-
-- name: Wait for AWX certificate to become ready.
-  ansible.builtin.command:
-    cmd: >-
-      {{ kubectl_install_path }} wait
-      --namespace {{ operators_awx_certificate_namespace }}
-      --for=condition=Ready
-      --timeout={{ operators_cert_manager_wait_timeout }}
-      certificate/{{ operators_awx_certificate_name }}
-  changed_when: false

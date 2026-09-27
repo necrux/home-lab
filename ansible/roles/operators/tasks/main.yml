@@ -16,3 +16,7 @@
 - name: Install AWX.
   ansible.builtin.include_tasks:
     file: awx.yml
+
+- name: Configure Argo CD.
+  ansible.builtin.include_tasks:
+    file: argocd.yml

@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+
+metadata:
+  name: argocd
+  namespace: {{ operators_argocd_namespace }}
+
+spec:
+  parentRefs:
+    - name: {{ operators_gateway_name }}
+      namespace: {{ operators_gateway_namespace }}
+      sectionName: argocd-https
+
+  hostnames:
+    - {{ operators_argocd_hostname }}
+
+  rules:
+    - backendRefs:
+        - name: {{ operators_argocd_service_name }}
+          port: {{ operators_argocd_service_port }}

@@ -100,6 +100,27 @@
     file: awx-gateway.yml
   when: operators_install_awx
 
+- name: Remove AWX Gateway API route.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} delete
+      -f /etc/kind/gateway/awx-httproute.yaml
+      --ignore-not-found
+  register: operators_awx_gateway_remove
+  changed_when: "'deleted' in operators_awx_gateway_remove.stdout"
+  when: not operators_install_awx
+
+- name: Remove AWX certificate.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} delete
+      certificate/{{ operators_awx_certificate_name }}
+      --namespace {{ operators_awx_certificate_namespace }}
+      --ignore-not-found
+  register: operators_awx_certificate_remove
+  changed_when: "'deleted' in operators_awx_certificate_remove.stdout"
+  when: not operators_install_awx
+
 - name: Uninstall AWX.
   ansible.builtin.command:
     cmd: >-

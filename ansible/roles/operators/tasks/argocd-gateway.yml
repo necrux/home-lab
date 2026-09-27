@@ -1,0 +1,33 @@
+---
+- name: Ensure ArgoCD Gateway API configuration directory exists.
+  ansible.builtin.file:
+    path: /etc/kind/gateway
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure ArgoCD HTTPRoute.
+  ansible.builtin.template:
+    src: argocd-httproute.yaml.j2
+    dest: /etc/kind/gateway/argocd-httproute.yaml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check for ArgoCD HTTPRoute changes.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} diff
+      -f /etc/kind/gateway/argocd-httproute.yaml
+  register: operators_argocd_gateway_diff
+  changed_when: false
+  failed_when: operators_argocd_gateway_diff.rc > 1
+
+- name: Apply ArgoCD HTTPRoute.
+  ansible.builtin.command:
+    cmd: >-
+      {{ kubectl_install_path }} apply
+      -f /etc/kind/gateway/argocd-httproute.yaml
+  when: operators_argocd_gateway_diff.rc == 1
+  changed_when: true
