@@ -1,9 +1,20 @@
 ---
-- name: Gather facts from home lab hosts
+- name: Gather facts from home lab hosts.
   hosts: all
   gather_facts: true
 
   tasks:
+    - name: Check WinRM service on Windows.
+      ansible.windows.win_service_info:
+        name: WinRM
+      register: winrm_service
+      when: ansible_os_family == "Windows"
+
+    - name: Display WinRM service status.
+      ansible.builtin.debug:
+        msg: "WinRM service is {{ winrm_service.services[0].state }}"
+      when: ansible_os_family == "Windows"
+
     - name: Display gathered facts
       ansible.builtin.debug:
         msg:
@@ -13,4 +24,10 @@
           - "Architecture: {{ ansible_architecture | default('Unknown') }}"
           - "CPU Cores: {{ ansible_processor_vcpus | default('Unknown') }}"
           - "Memory: {{ ansible_memtotal_mb | default('Unknown') }} MB"
-          - "Uptime: {{ ((ansible_uptime_seconds / 86400) | round(1)) if ansible_uptime_seconds is defined else 'Unknown' }} days"
+          - >-
+              Uptime:
+              {{
+                ((ansible_uptime_seconds / 86400) | round(1))
+                if ansible_uptime_seconds is defined
+                else 'Unknown'
+              }}
