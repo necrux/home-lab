@@ -52,7 +52,7 @@
       ansible.builtin.debug:
         msg:
           - "Hostname: {{ ansible_facts['hostname'] | default('Unknown') }}"
-          - "Operating System: {{ ansible_distribution | default('Unknown') }} {{ ansible_distribution_version | default('Unknown') }}"
+          - "Operating System: {{ ansible_facts['distribution'] | default('Unknown') }} {{ ansible_facts['distribution_version'] | default('Unknown') }}"
           - "Kernel: {{ ansible_kernel | default('Unknown') }}"
           - "Architecture: {{ ansible_architecture | default('Unknown') }}"
           - >-
